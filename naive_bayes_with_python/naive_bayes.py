@@ -1,5 +1,12 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Neste  projeto  nosso  trabalho  é  construir  um  modelo  de  Machine  Learning  capaz  de  
+classificar   um   documento   como   tendo   ou   não   assinatura   digital  com  base  em  
+algumas  características   do   documento.   
+
+Usaremos   para   isso   um   dos   mais   poderosos   algoritmos   probabilísticos, o Naive Bayes, 
+implementando-o em Python.
+"""
 
 #%% Setup
 from sklearn.metrics import confusion_matrix
@@ -143,9 +150,11 @@ def spec(cm : np.ndarray) -> float:
     return spec_val
 
     
-acc(cm)
-sens(cm)
-spec(cm)
+print(f"Acurácia: {acc(cm)}")
+print(f"Sensibilidade {sens(cm)}")
+print(f"Especificidade {spec(cm)}")
+
+
 
 
 
