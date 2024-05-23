@@ -39,7 +39,7 @@ struct DataFrame {
 // Funções
 ifstream readFile(string file_path);
 DataFrame createDataFrame(vector<string> cols, vector<vector<double>> data);
-void printDataFrame(DataFrame df, int n);
+void printDataFrame(DataFrame df, int n, string where = "top");
 vector<double> slice(vector<double> v, int start, int end);
 
 int main() {
@@ -124,24 +124,54 @@ int main() {
     DataFrame df(id.size(), cols.size());
 
     df = createDataFrame(cols, data);
+    
+    cout << "#------------Dataframe - primeiras 5 linhas------------#"  << endl;
     printDataFrame(df, 5);
     cout << endl;
+    cout << "#-------------Dataframe - últimas 5 linhas-------------#"  << endl;
+    printDataFrame(df, 5, "bottom");
+    cout << endl <<"=======================================================" << endl;
 
-    //------------------- Divisao em treino e teste ---------------
+    //------------------- Dataset de Treino ----------------
     vector<vector<double>> data_train;
     DataFrame df_train(starTest, cols.size());
     data_train = {
-        slice(id, 0, starTest), 
+        slice(id,                 0, starTest), 
         slice(certificado_valido, 0, starTest), 
-        slice(classe, 0, starTest), 
-        slice(tipo_doc, 0, starTest), 
-        slice(uso_dias, 0, starTest)
+        slice(classe,             0, starTest), 
+        slice(tipo_doc,           0, starTest), 
+        slice(uso_dias,           0, starTest)
     };
 
     df_train = createDataFrame(cols, data_train);
+    cout << "#---------Dataframe Treino - primeiras 5 linhas---------#" << endl;
     printDataFrame(df_train, 5);
+    cout << endl;
+    cout << "#----------Dataframe Treino - últimas 5 linhas----------#"<< endl;
+    printDataFrame(df_train, 5, "bottom");
+    cout << endl <<"=======================================================" << endl;
 
-    // falta colocar o teste
+    //------------------- Dataset de Teste ----------------
+    vector<vector<double>> data_test;
+    DataFrame df_test(id.size() - starTest, cols.size());
+    data_test = {
+        slice(id,                 starTest, id.size()), 
+        slice(certificado_valido, starTest, id.size()), 
+        slice(classe,             starTest, id.size()), 
+        slice(tipo_doc,           starTest, id.size()), 
+        slice(uso_dias,           starTest, id.size())
+    };
+
+    df_test = createDataFrame(cols, data_test);                    
+    cout << "#---------Dataframe Teste - primeiras 5 linhas---------#" << endl;
+    printDataFrame(df_test, 5);
+    cout << endl;
+    cout << "#---------Dataframe Teste - últimas 5 linhas----------#"  << endl;
+    printDataFrame(df_test, 5, "bottom");
+    cout << endl <<"=======================================================" << endl;
+
+    //------------------- Dataset de Teste ----------------
+
 };
 
 ifstream readFile(string file_path) {
@@ -181,7 +211,7 @@ DataFrame createDataFrame(vector<string> cols, vector<vector<double>> data) {
     return df;
 };
 
-void printDataFrame(DataFrame df, int n) {
+void printDataFrame(DataFrame df, int n, string where) {
 
     // header
     for(auto var: df.cols) {
@@ -189,16 +219,35 @@ void printDataFrame(DataFrame df, int n) {
     }
     cout << endl;
 
-    // row
-    for (int i = 0; i < n; i++) {
-        cout << 
-            df.data.at(i).at(0) << "             " <<
-            df.data.at(i).at(1) << "            " <<
-            df.data.at(i).at(2) << "        " <<
-            df.data.at(i).at(3) << "         " <<
-            df.data.at(i).at(4) << endl;
-        
+
+    if(where == "top") {
+        // row
+        for (int i = 0; i < n; i++) {
+            cout << 
+                df.data.at(i).at(0) << "             " <<
+                df.data.at(i).at(1) << "            " <<
+                df.data.at(i).at(2) << "        " <<
+                df.data.at(i).at(3) << "         " <<
+                df.data.at(i).at(4) << endl;
+            
+        }
+
     }
+
+    if(where == "bottom") {
+        int start = df.data.size() - n;
+        // row
+        for (int i = start; i < df.data.size(); i++) {
+            cout << 
+                df.data.at(i).at(0) << "             " <<
+                df.data.at(i).at(1) << "            " <<
+                df.data.at(i).at(2) << "        " <<
+                df.data.at(i).at(3) << "         " <<
+                df.data.at(i).at(4) << endl;
+            
+        }
+    }
+
 };
 
 vector<double> slice(vector<double> v, int start, int end) {
