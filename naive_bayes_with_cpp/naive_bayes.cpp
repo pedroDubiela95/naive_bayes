@@ -394,6 +394,11 @@ vector<double> calc_mean(DataFrame df) {
     double sum_0, sum_1;
     int cnt_0, cnt_1;
 
+    sum_0 = 0;
+    sum_1 = 0;
+    cnt_0 = 0;
+    cnt_1 = 0;
+
     for(auto row: df.data) {
         if(row.at(2) == 0) {
             sum_0 += row.at(4);
@@ -422,6 +427,11 @@ vector<double> calc_std(DataFrame df, vector<double> mean) {
     vector<double> std_uso_dias(2,0);
     double sum_0, sum_1;
     int cnt_0, cnt_1;
+
+    sum_0 = 0;
+    sum_1 = 0;
+    cnt_0 = 0;
+    cnt_1 = 0;
 
     for(auto row: df.data) {
         if(row.at(2) == 0) {
