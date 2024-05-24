@@ -37,16 +37,20 @@ struct DataFrame {
 
 
 // Funções
-ifstream readFile(string file_path);
-DataFrame createDataFrame(vector<string> cols, vector<vector<double>> data);
-void printDataFrame(DataFrame df, int n, string where = "top");
+ifstream read_file(string file_path);
+DataFrame create_DataFrame(vector<string> cols, vector<vector<double>> data);
+void print_DataFrame(DataFrame df, int n, string where = "top");
 vector<double> slice(vector<double> v, int start, int end);
+vector<vector<double>> get_distribution_certificado_valido(DataFrame df, vector<vector<double>> tab);
+vector<vector<double>> get_distribution_tipo_doc(DataFrame df, vector<vector<double>> tab);
+vector<double>  calc_mean(DataFrame df);
+vector<double> calc_std(DataFrame df, vector<double> mean);
 
 int main() {
 
     //------------------- Leitura da base de dados-------
     ifstream inputFile;
-    inputFile = readFile("src/dataset.csv");
+    inputFile = read_file("src/dataset.csv");
 
 
     //------------------- Declaração das Vars ---------------
@@ -123,13 +127,13 @@ int main() {
     vector<vector<double>> data = {id, certificado_valido, classe, tipo_doc, uso_dias};
     DataFrame df(id.size(), cols.size());
 
-    df = createDataFrame(cols, data);
+    df = create_DataFrame(cols, data);
     
     cout << "#------------Dataframe - primeiras 5 linhas------------#"  << endl;
-    printDataFrame(df, 5);
+    print_DataFrame(df, 5);
     cout << endl;
     cout << "#-------------Dataframe - últimas 5 linhas-------------#"  << endl;
-    printDataFrame(df, 5, "bottom");
+    print_DataFrame(df, 5, "bottom");
     cout << endl <<"=======================================================" << endl;
 
     //------------------- Dataset de Treino ----------------
@@ -143,12 +147,12 @@ int main() {
         slice(uso_dias,           0, starTest)
     };
 
-    df_train = createDataFrame(cols, data_train);
+    df_train = create_DataFrame(cols, data_train);
     cout << "#---------Dataframe Treino - primeiras 5 linhas---------#" << endl;
-    printDataFrame(df_train, 5);
+    print_DataFrame(df_train, 5);
     cout << endl;
     cout << "#----------Dataframe Treino - últimas 5 linhas----------#"<< endl;
-    printDataFrame(df_train, 5, "bottom");
+    print_DataFrame(df_train, 5, "bottom");
     cout << endl <<"=======================================================" << endl;
 
     //------------------- Dataset de Teste ----------------
@@ -162,19 +166,51 @@ int main() {
         slice(uso_dias,           starTest, id.size())
     };
 
-    df_test = createDataFrame(cols, data_test);                    
+    df_test = create_DataFrame(cols, data_test);                    
     cout << "#---------Dataframe Teste - primeiras 5 linhas---------#" << endl;
-    printDataFrame(df_test, 5);
+    print_DataFrame(df_test, 5);
     cout << endl;
     cout << "#---------Dataframe Teste - últimas 5 linhas----------#"  << endl;
-    printDataFrame(df_test, 5, "bottom");
+    print_DataFrame(df_test, 5, "bottom");
     cout << endl <<"=======================================================" << endl;
 
-    //------------------- Dataset de Teste ----------------
+    //------------------- Create model ----------------
 
+    // Discrete
+    vector<vector<double>>  probability_distribution_certificado_valido(2, vector<double>(2,0)); // 2 x 2
+    vector<vector<double>>  probability_distribution_tipo_doc(2, vector<double>(3,0)); // 2 x 3
+    
+    /*
+    #------------Dataframe - primeiras 5 linhas------------#
+    id   certificado_valido   classe   tipo_doc   uso_dias   
+    738             1            0        3         19
+    868             0            1        3         22
+    971             1            1        3         20
+    938             0            0        3         1
+    456             1            0        2         63
+    */
+
+    // --> certificado_valido
+    probability_distribution_certificado_valido = get_distribution_certificado_valido(
+        df_train, 
+        probability_distribution_certificado_valido
+    );
+
+    // --> tipo_doc
+    probability_distribution_tipo_doc = get_distribution_tipo_doc(
+        df_train, 
+        probability_distribution_tipo_doc
+    );
+
+    // Continuous
+    vector<double> mean_uso_dias(2,0), std_uso_dias(2,0);
+
+    mean_uso_dias =  calc_mean(df_train);
+    std_uso_dias  = calc_std(df_train, mean_uso_dias);
+    
 };
 
-ifstream readFile(string file_path) {
+ifstream read_file(string file_path) {
     /*
     Leitura do arquivos de dados
     */
@@ -190,7 +226,7 @@ ifstream readFile(string file_path) {
     return inputFile;
 };
 
-DataFrame createDataFrame(vector<string> cols, vector<vector<double>> data) {
+DataFrame create_DataFrame(vector<string> cols, vector<vector<double>> data) {
 
     int nrows, ncols;
     nrows = data.at(0).size();
@@ -211,7 +247,7 @@ DataFrame createDataFrame(vector<string> cols, vector<vector<double>> data) {
     return df;
 };
 
-void printDataFrame(DataFrame df, int n, string where) {
+void print_DataFrame(DataFrame df, int n, string where) {
 
     // header
     for(auto var: df.cols) {
@@ -257,3 +293,156 @@ vector<double> slice(vector<double> v, int start, int end) {
     }
     return vector<double>(v.begin() + start, v.begin() + end);
 }
+
+vector<vector<double>> get_distribution_certificado_valido(DataFrame df, vector<vector<double>> tab) {
+
+    for (auto row: df.data) {
+
+        if(row.at(1) == 0 && row.at(2) == 0) {
+            tab.at(0).at(0)++;
+        }
+
+        if(row.at(1) == 1 && row.at(2) == 0) {
+            tab.at(0).at(1)++;
+        }
+
+        if(row.at(1) == 0 && row.at(2) == 1) {
+            tab.at(1).at(0)++;
+        }
+
+        if(row.at(1) == 1 && row.at(2) == 1) {
+            tab.at(1).at(1)++;
+        }
+
+    }
+
+    cout << "Distribuição da feature certificado_valido" << endl;
+    tab.at(0).at(0) = tab.at(0).at(0) / (tab.at(0).at(0) + tab.at(0).at(1)); 
+    tab.at(0).at(1) = 1 - tab.at(0).at(0);
+    
+    tab.at(1).at(0) = tab.at(1).at(0) / (tab.at(1).at(1) + tab.at(1).at(0)); 
+    tab.at(1).at(1) = 1 - tab.at(1).at(0);
+
+    cout << "        x = 0     x = 1" << endl;
+    cout <<"y = 0 "<<tab.at(0).at(0) << " ";
+    cout << tab.at(0).at(1) << endl;
+    cout <<"y = 1 "<<tab.at(1).at(0) << " ";
+    cout << tab.at(1).at(1);
+    cout << endl <<"=======================================================" << endl;
+
+    return tab;
+}
+
+vector<vector<double>> get_distribution_tipo_doc(DataFrame df, vector<vector<double>> tab) {
+
+    for (auto row: df.data) {
+
+        if(row.at(3) == 1 && row.at(2) == 0) {
+            tab.at(0).at(0)++;
+        }
+
+        if(row.at(3) == 2 && row.at(2) == 0) {
+            tab.at(0).at(1)++;
+        }
+
+        if(row.at(3) == 3 && row.at(2) == 0) {
+            tab.at(0).at(2)++;
+        }
+
+        if(row.at(3) == 1 && row.at(2) == 1) {
+            tab.at(1).at(0)++;
+        }
+
+        if(row.at(3) == 2 && row.at(2) == 1) {
+            tab.at(1).at(1)++;
+        }
+
+        if(row.at(3) == 3 && row.at(2) == 1) {
+            tab.at(1).at(2)++;
+        }
+
+    }
+
+    cout << "Distribuição da feature tipo_doc" << endl;
+    double sum;
+
+    sum = (tab.at(0).at(0) + tab.at(0).at(1) + tab.at(0).at(2));
+    tab.at(0).at(0) = tab.at(0).at(0) / sum;
+    tab.at(0).at(1) = tab.at(0).at(1) / sum;
+    tab.at(0).at(2) = tab.at(0).at(2) / sum; 
+    
+    sum = (tab.at(1).at(0) + tab.at(1).at(1) + tab.at(1).at(2)); 
+    tab.at(1).at(0) = tab.at(1).at(0) / sum;
+    tab.at(1).at(1) = tab.at(1).at(1) / sum; 
+    tab.at(1).at(2) = tab.at(1).at(2) / sum; 
+
+    cout << "        x = 1     x = 2    x = 3" << endl;
+    cout <<"y = 0 "<<tab.at(0).at(0) << " ";
+    cout << tab.at(0).at(1) << " ";
+    cout << tab.at(0).at(2) << endl;
+    cout <<"y = 1 "<<tab.at(1).at(0) << " ";
+    cout << tab.at(1).at(1) << " ";
+    cout << tab.at(1).at(2);
+    cout << endl <<"=======================================================" << endl;
+
+    return tab;
+};
+
+vector<double> calc_mean(DataFrame df) {
+
+    vector<double> mean_uso_dias(2,0);
+    double sum_0, sum_1;
+    int cnt_0, cnt_1;
+
+    for(auto row: df.data) {
+        if(row.at(2) == 0) {
+            sum_0 += row.at(4);
+            cnt_0++;
+        }
+        if(row.at(2) == 1) {
+            sum_1 += row.at(4);
+            cnt_1++;
+        }
+    }
+
+    mean_uso_dias.at(0) = sum_0/cnt_0;
+    mean_uso_dias.at(1) = sum_1/cnt_1;
+
+    cout << "Médias da feature uso_dias" << endl;
+    cout << "y = 0     y = 1" << endl;
+    cout << mean_uso_dias.at(0) <<" ";
+    cout << mean_uso_dias.at(1);
+    cout << endl <<"=======================================================" << endl;
+
+    return mean_uso_dias;
+};
+
+vector<double> calc_std(DataFrame df, vector<double> mean) {
+
+    vector<double> std_uso_dias(2,0);
+    double sum_0, sum_1;
+    int cnt_0, cnt_1;
+
+    for(auto row: df.data) {
+        if(row.at(2) == 0) {
+            sum_0 += pow((row.at(4) - mean.at(0)), 2);
+            cnt_0++;
+        }
+        if(row.at(2) == 1) {
+            sum_1 += pow((row.at(4) - mean.at(1)), 2);
+            cnt_1++;
+        }
+    }
+
+    std_uso_dias.at(0) = sqrt(sum_0/(cnt_0 - 1));
+    std_uso_dias.at(1) = sqrt(sum_1/(cnt_1 - 1));
+
+    cout << "Desvio padrão da feature uso_dias" << endl;
+    cout << "y = 0     y = 1" << endl;
+    cout << std_uso_dias.at(0) <<" ";
+    cout << std_uso_dias.at(1);
+    cout << endl <<"=======================================================" << endl;
+
+    return std_uso_dias;
+}
+    
