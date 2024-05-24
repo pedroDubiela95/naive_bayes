@@ -21,8 +21,6 @@ using namespace std::chrono;
 // Ìndice de início dos dados de teste
 const int starTest = 900;
 
-// Número de previsões que serão mostradas
-const int numOfIterations = 5;
 
 // Struc
 struct DataFrame {
@@ -45,6 +43,12 @@ vector<vector<double>> get_distribution_certificado_valido(DataFrame df, vector<
 vector<vector<double>> get_distribution_tipo_doc(DataFrame df, vector<vector<double>> tab);
 vector<double>  calc_mean(DataFrame df);
 vector<double> calc_std(DataFrame df, vector<double> mean);
+vector<vector<vector<double>>> fit(DataFrame df);
+double likelihood_certificado_valido(vector<vector<vector<double>>> probs, int y, double val_x);
+double likelihood_tipo_doc(vector<vector<vector<double>>> probs, int y, double val_x);
+double likelihood_uso_dias(vector<vector<vector<double>>> probs, int y, double val_x);
+vector<double> priori(DataFrame df);
+vector<double> apply_model(DataFrame df_test, DataFrame df_train, vector<vector<vector<double>>> probs);
 
 int main() {
 
@@ -174,40 +178,54 @@ int main() {
     print_DataFrame(df_test, 5, "bottom");
     cout << endl <<"=======================================================" << endl;
 
-    //------------------- Create model ----------------
+    //------------------- Fit Model ----------------
+    vector<vector<vector<double>>> probs;
+    probs = fit(df_train);
 
-    // Discrete
-    vector<vector<double>>  probability_distribution_certificado_valido(2, vector<double>(2,0)); // 2 x 2
-    vector<vector<double>>  probability_distribution_tipo_doc(2, vector<double>(3,0)); // 2 x 3
-    
+    //------------------- Apply Model ----------------
+    vector<double> y_pred = apply_model(df_test, df_train, probs);
+
+    //------------------- Evaluate ----------------
+    vector<double> y_true;
+    for(auto row: df_test.data) {
+        y_true.push_back(row.at(2));
+    }
+
+    double tp = 0, tn = 0, fp = 0, fn = 0;
     /*
-    #------------Dataframe - primeiras 5 linhas------------#
-    id   certificado_valido   classe   tipo_doc   uso_dias   
-    738             1            0        3         19
-    868             0            1        3         22
-    971             1            1        3         20
-    938             0            0        3         1
-    456             1            0        2         63
+       1   0
+    1  tp  fn 
+    0  fp  tn
+   
     */
 
-    // --> certificado_valido
-    probability_distribution_certificado_valido = get_distribution_certificado_valido(
-        df_train, 
-        probability_distribution_certificado_valido
-    );
+    for (int i = 0; i < y_pred.size(); i++) {
 
-    // --> tipo_doc
-    probability_distribution_tipo_doc = get_distribution_tipo_doc(
-        df_train, 
-        probability_distribution_tipo_doc
-    );
+        if(y_true.at(i) == 1 && y_pred.at(i) == 1){
+            tp++;
+        }
+        if(y_true.at(i) == 1 && y_pred.at(i) == 0){
+            fn++;
+        }
 
-    // Continuous
-    vector<double> mean_uso_dias(2,0), std_uso_dias(2,0);
+        if(y_true.at(i) == 0 && y_pred.at(i) == 1){
+            fp++;
+        }
 
-    mean_uso_dias =  calc_mean(df_train);
-    std_uso_dias  = calc_std(df_train, mean_uso_dias);
-    
+        if(y_true.at(i) == 0 && y_pred.at(i) == 0){
+            tn++;
+        }
+    }
+
+    double acc  = (tp + tn)/(tp + tn + fp + fn);
+    double sens = tp/(tp + fn);
+    double spec = tn/(tn + fp);
+
+    cout << "Acurácia: " << acc  << endl 
+    << "Sensibilidade: " << sens << endl 
+    <<"Especificidade: " << spec << endl; 
+
+
 };
 
 ifstream read_file(string file_path) {
@@ -454,5 +472,160 @@ vector<double> calc_std(DataFrame df, vector<double> mean) {
     cout << endl <<"=======================================================" << endl;
 
     return std_uso_dias;
+};
+
+
+
+vector<vector<vector<double>>> fit(DataFrame df) {
+
+    // ------------------------- Discrete Features ------------------------------------
+    vector<vector<double>>  probability_distribution_certificado_valido(2, vector<double>(2,0)); // 2 x 2
+    vector<vector<double>>  probability_distribution_tipo_doc(2, vector<double>(3,0));           // 2 x 3
+
+    // --> certificado_valido
+    probability_distribution_certificado_valido = get_distribution_certificado_valido(
+        df, 
+        probability_distribution_certificado_valido
+    );
+
+    // --> tipo_doc
+    probability_distribution_tipo_doc = get_distribution_tipo_doc(
+        df, 
+        probability_distribution_tipo_doc
+    );
+
+    // ------------------------- Continuous Features ------------------------------------
+    vector<double> mean_uso_dias(2,0);                                                 // 1x2 
+    vector<double> std_uso_dias(2,0);                                                  // 1x2
+    vector<vector<double>>  probability_distribution_uso_dias(2, vector<double>(2,0)); // 2 x 2
+
+    // --> uso_dias
+    mean_uso_dias                     = calc_mean(df);
+    std_uso_dias                      = calc_std(df, mean_uso_dias);
+    probability_distribution_uso_dias = {
+        mean_uso_dias,
+        std_uso_dias
+    };
+
+    // ------------------------- Final Result ------------------------------------
+        
+    // Result
+    vector<vector<vector<double>>> probs;
+    probs = {
+        probability_distribution_certificado_valido,
+        probability_distribution_tipo_doc,
+        probability_distribution_uso_dias
+    };
+
+    return probs;
+
+};
+
+double likelihood_certificado_valido(vector<vector<vector<double>>> probs, int y, double val_x) {
+    return probs.at(0).at(y).at(val_x);
+};
+
+double likelihood_tipo_doc(vector<vector<vector<double>>> probs, int y, double val_x) {
+    return probs.at(1).at(y).at(val_x-1);
 }
+    
+double likelihood_uso_dias(vector<vector<vector<double>>> probs, int y, double val_x) {
+
+    double mean, std, var, den, num, pdf;
+
+    mean = probs.at(2).at(0).at(y);
+    std  = probs.at(2).at(1).at(y);
+    var  = pow(std, 2);
+
+    // Gaussian
+    den = sqrt((2 * M_PI * var));
+    num = exp(-pow((val_x- mean), 2)  /(2*var));
+    pdf = num/den;
+
+    cout <<"y = "<<y<< "| valor =  " << val_x << "| mean = " << mean << "| std = " << std << "| pdf = " << pdf << endl;
+    return pdf;
+}
+
+vector<double> priori(DataFrame df) {
+
+    vector<double> priori(2,0);
+    double cnt_0, cnt_1;
+
+    cnt_0 = 0;
+    cnt_1 = 0;
+
+    for(auto row: df.data) {
+        if(row.at(2) == 0) {
+            cnt_0++;
+        }
+        if(row.at(2) == 1) {
+            cnt_1++;
+        }
+    }
+
+    priori = {
+        cnt_0/df.data.size(),
+        cnt_1/df.data.size()
+    };
+
+    return priori;
+};
+
+vector<double> apply_model(DataFrame df_test, DataFrame df_train, vector<vector<vector<double>>> probs) {
+
+    //posterior   
+    double posterior_0, posterior_1;
+
+    //piori
+    vector<double> priori_all = priori(df_train);
+    double priori_0, priori_1;
+
+    priori_0 = priori_all.at(0);
+    priori_1 = priori_all.at(1);
+
+    //Verossimilhança
+    double p_tipo_doc_y_0, p_tipo_doc_y_1;
+    double p_certificado_valido_y_0, p_certificado_valido_y_1;
+    double p_uso_dias_y_0, p_uso_dias_y_1;
+    double likelihood_0,likelihood_1;
+    double val_x, y;
+
+    // pred
+    vector<double> y_pred;
+
+    // Calculo
+    for (auto row: df_test.data) {
+
+        // certificado_valido
+        val_x = row.at(1);
+        p_certificado_valido_y_0 = likelihood_certificado_valido(probs, 0, val_x);
+        p_certificado_valido_y_1 = likelihood_certificado_valido(probs, 1, val_x);
+
+        // tipo_doc
+        val_x = row.at(3);
+        p_tipo_doc_y_0 = likelihood_tipo_doc(probs, 0, val_x);
+        p_tipo_doc_y_1 = likelihood_tipo_doc(probs, 1, val_x);
+
+        // uso_dias
+        val_x = row.at(4);
+        p_uso_dias_y_0 = likelihood_uso_dias(probs, 0, val_x);
+        p_uso_dias_y_1 = likelihood_uso_dias(probs, 1, val_x);
+
+        likelihood_0 = p_certificado_valido_y_0 * p_tipo_doc_y_0 * p_uso_dias_y_0;
+        likelihood_1 = p_certificado_valido_y_1 * p_tipo_doc_y_1 * p_uso_dias_y_1;
+
+        posterior_0 = likelihood_0 * priori_0;
+        posterior_1 = likelihood_1 * priori_1;
+
+        // normalize
+        if(posterior_0 > posterior_1){
+            y_pred.push_back(0);
+        } else {
+            y_pred.push_back(1);
+        }
+    }
+    return y_pred;
+};
+
+
     
