@@ -15,7 +15,7 @@
 // Namespace
 using namespace std;
 
-//----------------------------------------------Constanstes e Estruturas---------------------------------------------------
+//----------------------------------------------Constantes e Estruturas---------------------------------------------------
 // Ìndice de início dos dados de teste
 const int starTest = 900;
 
@@ -494,7 +494,7 @@ vector<vector<vector<double>>> fit(DataFrame df) {
         probability_distribution_tipo_doc
     );
 
-    // ------------------------- Continuas ------------------------------------
+    // ------------------------- Contínuas ------------------------------------
     vector<double> mean_uso_dias(2,0);                                                 // 1x2 
     vector<double> std_uso_dias(2,0);                                                  // 1x2
     vector<vector<double>>  probability_distribution_uso_dias(2, vector<double>(2,0)); // 2 x 2
